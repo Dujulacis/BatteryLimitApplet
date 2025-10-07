@@ -23,7 +23,6 @@ def get_batteries():
 
         thresholds = {}
 
-        # 
         if os.path.isfile(end_modern):
             thresholds["type"] = "modern"
             thresholds["start"] = start_modern if os.path.isfile(start_modern) else None
@@ -35,7 +34,14 @@ def get_batteries():
 
         if thresholds:
             batteries.append((item, thresholds))
-
+        
+        # Get battery information in console
+        for items in batteries:
+            print("Battery: "+item)
+            print("Threshold type: "+thresholds["type"])
+            print("Start threshold type: "+str(thresholds["start"]))
+            print("End threshold type: "+str(thresholds["end"]))
+            print("----------")
     return batteries
 
 # Get current battery limit
