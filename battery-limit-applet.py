@@ -3,6 +3,10 @@ import os
 gi.require_version('AppIndicator3', '0.1')
 from gi.repository import AppIndicator3, Gtk
 
+BATTERIES = []
+POLKIT_ACTION = "com.batapp.battery.limit.set"
+
+# Get batteries on startup
 def get_batteries():
     batteries = []
     base_path = "/sys/class/power_supply"
@@ -42,6 +46,7 @@ def get_batteries():
             print("Start threshold type: "+str(thresholds["start"]))
             print("End threshold type: "+str(thresholds["end"]))
             print("----------")
+
     return batteries
 
 # Get current battery limit
@@ -53,37 +58,42 @@ def get_current_limit(thresholds):
         return None
 
 def set_limit(thresholds, value):
-        ttype = thresholds.get("type")
-        if ttype == "modern":
-            # Modern: end threshold always present
-            os.system(f"pkexec sh -c 'echo {value} > {thresholds['end']}'")
-            
-            # Create optional start threshold (set 10% lower if exists) // TODO Add custom start
-            if thresholds.get("start"):
-                start_val = max(1, value - 10)
-                os.system(f"pkexec sh -c 'echo {start_val} > {thresholds['start']}'")
+    start_val = None
+    end_cmd = f"pkexec sh -c 'echo {value} > {thresholds['end']}'"
+    start_cmd = f"pkexec sh -c 'echo {start_val} > {thresholds['start']}'"
 
-        elif ttype == "legacy":
-            # Legacy: stop threshold always present
-            os.system(f"pkexec sh -c 'echo {value} > {thresholds['end']}'")
-            
-            # Create optional start threshold (set 10% lower if exists) // TODO Add custom start
-            if thresholds.get("start"):
-                start_val = max(1, value - 10)
-                os.system(f"pkexec sh -c 'echo {start_val} > {thresholds['start']}'")
+    ttype = thresholds.get("type")
+
+    if ttype == "modern":
+        # Modern: end threshold always present
+        os.system(end_cmd)
+        
+        # Create optional start threshold (set 10% lower if exists) // TODO Add custom start
+        if thresholds.get("start"):
+            start_val = max(1, value - 10)
+            os.system(start_cmd)
+
+    elif ttype == "legacy":
+        # Legacy: stop threshold always present
+        os.system(end_cmd)
+        
+        # Create optional start threshold (set 10% lower if exists) // TODO Add custom start
+        if thresholds.get("start"):
+            start_val = max(1, value - 10)
+            os.system(start_cmd)
 
 def on_select(path_data, value):
     set_limit(path_data, value)
     refresh_menu()
 
-def build_menu():
-    menu = Gtk.Menu()
+# Build/refresh menu
+def refresh_menu():
+    for child in indicator_menu.get_children():
+        indicator_menu.remove(child)
 
-    batteries = get_batteries()
     options = [50, 80, 100]
-    
-    # Create a new submenu for each battery
-    for bat_name, thresholds in batteries:
+
+    for bat_name, thresholds in BATTERIES:
         submenu = Gtk.Menu()
         current = get_current_limit(thresholds)
         for val in options:
@@ -94,36 +104,32 @@ def build_menu():
             item.connect("activate", lambda w, t=thresholds, v=val: on_select(t, v))
             submenu.append(item)
 
-        # Top level battery menu
         bat_item = Gtk.MenuItem(label=f"Battery ({bat_name})")
         bat_item.set_submenu(submenu)
-        menu.append(bat_item)
+        indicator_menu.append(bat_item)
 
     separator = Gtk.SeparatorMenuItem()
-    menu.append(separator)
+    indicator_menu.append(separator)
 
     quit_item = Gtk.MenuItem(label="Quit")
     quit_item.connect("activate", Gtk.main_quit)
-    menu.append(quit_item)
+    indicator_menu.append(quit_item)
 
-    menu.show_all()
-    return menu
-
-def refresh_menu():
-    indicator.set_menu(build_menu())
-    indicator.set_icon("battery")
-    indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+    indicator_menu.show_all()
 
 def main():
-    global indicator
+    global indicator, indicator_menu
     indicator = AppIndicator3.Indicator.new(
         "battery-limit",
         "battery",
         AppIndicator3.IndicatorCategory.APPLICATION_STATUS
     )
     indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+    indicator_menu = Gtk.Menu()
+    indicator.set_menu(indicator_menu)
     refresh_menu()
     Gtk.main()
 
 if __name__ == "__main__":
+    BATTERIES = get_batteries()
     main()
