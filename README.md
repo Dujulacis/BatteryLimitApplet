@@ -20,8 +20,8 @@ Battery Limit Applet is a Linux system tray applet written in Python to manage *
 - Linux distributions with **systemd**.
 - Laptops exposing battery thresholds in `/sys/class/power_supply`.
 - Tested on:
- - Asus Vivobook
- - Lenovo Thinkpad
+  - Asus Vivobook
+  - Lenovo Thinkpad
    
 > Some OEMs may not expose battery thresholds. Check `/sys/class/power_supply/BAT*/` for supported files.
 
