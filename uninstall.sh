@@ -1,54 +1,33 @@
 #!/bin/bash
+
 # Uninstall script
 set -e
 
-POLICY_DEST="/usr/share/polkit-1/actions/com.batapp.battery.limit.policy"
-RULES_DEST="/etc/polkit-1/rules.d/90-battery-limit.rules"
-
-echo "Uninstalling PolicyKit files for battery-limit-applet..."
-
-# Require root privileges
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run with sudo: sudo ./uninstall.sh"
-  exit 1
+if [ -z "$SUDO_USER" ]; then
+    USERNAME="$USER"
+else
+    USERNAME="$SUDO_USER"
 fi
 
-# Remove installed PolicyKit files
-if [ -f "$POLICY_DEST" ]; then
-  rm -f "$POLICY_DEST"
-  echo "Removed $POLICY_DEST"
-fi
+USER_HOME="$(getent passwd "$USERNAME" | cut -d: -f6 || echo "$HOME")"
+APP_DIR="$USER_HOME/.local/share/battery-limit-applet"
+SERVICE_FILE="$USER_HOME/.config/systemd/user/battery-limit-applet.service"
+POLKIT_RULE="/usr/share/polkit-1/rules.d/90-battery-limit.rules"
 
-if [ -f "$RULES_DEST" ]; then
-  rm -f "$RULES_DEST"
-  echo "Removed $RULES_DEST"
-fi
+echo "Uninstalling Battery Limit Applet..."
 
-# Optionally remove the 'power' group
-if getent group power > /dev/null; then
-  read -p "Do you want to remove the 'power' group? (y/N): " choice
-  case "$choice" in
-    [Yy]* )
-      groupdel power
-      echo "Removed 'power' group."
-      ;;
-    * )
-      echo "Keeping 'power' group."
-      ;;
-  esac
-fi
+systemctl --user stop battery-limit-applet.service || true
+systemctl --user disable battery-limit-applet.service || true
+systemctl --user daemon-reload
 
-# Restart Polkit to apply changes
-echo "Restarting polkit service..."
-systemctl restart polkit
+sudo rm -f "$SERVICE_FILE"
+sudo rm -rf "$APP_DIR"
+sudo rm -f "$POLKIT_RULE"
 
-APP_DIR="/opt/battery-limit-applet"
-AUTOSTART_FILE="$HOME/.config/autostart/battery-limit-applet.desktop"
+sudo gpasswd -d "$SUDO_USER" battery || true
+sudo groupdel battery || true
 
-# Remove files
-echo "Removing files"
-rm -rf "$APP_DIR"
-sudo -u "$SUDO_USER" rm -f "$AUTOSTART_FILE" 2>/dev/null || true
+echo "Polkit rule removed."
 
 echo "Uninstallation complete."
 echo "You may need to log out and back in for group changes to take effect."

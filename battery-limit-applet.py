@@ -40,14 +40,15 @@ def get_batteries():
             batteries.append((item, thresholds))
         
         # Get battery information in console
-        for items in batteries:
-            print("Battery: "+item)
-            print("Threshold type: "+thresholds["type"])
-            print("Start threshold type: "+str(thresholds["start"]))
-            print("End threshold type: "+str(thresholds["end"]))
-            print("----------")
+        # for items in batteries:
+        #     print("Battery: "+item)
+        #     print("Threshold type: "+thresholds["type"])
+        #     print("Start threshold type: "+str(thresholds["start"]))
+        #     print("End threshold type: "+str(thresholds["end"]))
+        #     print("----------")
 
     return batteries
+
 
 # Get current battery limit
 def get_current_limit(thresholds):
@@ -56,6 +57,7 @@ def get_current_limit(thresholds):
             return int(f.read().strip())
     except Exception:
         return None
+
 
 def set_limit(thresholds, value):
     start_val = None
@@ -82,9 +84,11 @@ def set_limit(thresholds, value):
             start_val = max(1, value - 10)
             os.system(start_cmd)
 
+
 def on_select(path_data, value):
     set_limit(path_data, value)
     refresh_menu()
+
 
 # Build/refresh menu
 def refresh_menu():
@@ -116,6 +120,7 @@ def refresh_menu():
     indicator_menu.append(quit_item)
 
     indicator_menu.show_all()
+
 
 def main():
     global indicator, indicator_menu

@@ -1,9 +1,5 @@
 polkit.addRule(function(action, subject) {
-    if (
-        action.id == "org.freedesktop.policykit.exec" &&
-        subject.isInGroup("power") &&
-        action.lookup("command_line").indexOf("/bin/sh") >= 0
-    ) {
+    if (subject.isInGroup("battery")) {
         return polkit.Result.YES;
     }
 });

@@ -1,73 +1,74 @@
 #!/bin/bash
-# Optional install script for autostart and no password requirement
+
+# Install script with optional password-less threshold management
 set -e
 
-POLICY_SRC="data/polkit/com.batapp.battery.limit.policy"
-RULES_SRC="data/polkit/90-battery-limit.rules"
-
-POLICY_DEST="/usr/share/polkit-1/actions/com.batapp.battery.limit.policy"
-RULES_DEST="/etc/polkit-1/rules.d/90-battery-limit.rules"
-
-echo "Installing PolicyKit files for battery-limit-applet..."
-
-# Check for root
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run with sudo: sudo ./install.sh"
-  exit 1
-fi
-
-# Install PolicyKit files
-install -Dm644 "$POLICY_SRC" "$POLICY_DEST"
-install -Dm644 "$RULES_SRC" "$RULES_DEST"
-
-echo "Installed:"
-echo "  $POLICY_DEST"
-echo "  $RULES_DEST"
-
-# Create 'power' group if missing
-if ! getent group power > /dev/null; then
-  echo "Creating group 'power'..."
-  groupadd power
+if [ -z "$SUDO_USER" ]; then
+    USERNAME="$USER"
 else
-  echo "ℹGroup 'power' already exists."
+    USERNAME="$SUDO_USER"
 fi
 
-# Add current user to 'power'
-if id "$SUDO_USER" | grep -q "power"; then
-  echo "User '$SUDO_USER' is already in 'power' group."
-else
-  usermod -aG power "$SUDO_USER"
-  echo "Added user '$SUDO_USER' to 'power' group."
-  echo "You may need to log out and back in for group changes to take effect."
-fi
+# Directories
+USER_HOME="$(getent passwd "$USERNAME" | cut -d: -f6 || echo "$HOME")"
+SRC_DIR="$(pwd)"
+APP_DIR="$USER_HOME/.local/share/battery-limit-applet"
 
-# Restart Polkit
-echo "Restarting polkit service..."
-systemctl restart polkit
+RULES_SRC="$SRC_DIR/data/polkit/90-battery-limit.rules"
+RULES_DEST="/usr/share/polkit-1/rules.d"
+
+SERVICE_DIR="$USER_HOME/.config/systemd/user"
+SERVICE_FILE="$SERVICE_DIR/battery-limit-applet.service"
+
 
 # Install program files
-echo "Installing files, configuring autostart"
+echo "Installing Battery Limit Applet for $USERNAME"
 
-APP_DIR="/opt/battery-limit-applet"
-USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-AUTOSTART_DIR="$USER_HOME/.config/autostart"
-DESKTOP_FILE="$AUTOSTART_DIR/battery-limit-applet.desktop"
+mkdir -p "$APP_DIR" "$SERVICE_DIR"
 
-mkdir -p "$APP_DIR"
+cp "$SRC_DIR/battery-limit-applet.py" "$APP_DIR/"
+cp "$SRC_DIR/launcher.sh" "$APP_DIR/"
+cp "$SRC_DIR/uninstall.sh" "$APP_DIR/"
 
-install -Dm755 battery-limit-applet.py "$APP_DIR/battery-limit-applet.py"
-install -Dm755 launcher.sh "$APP_DIR/launcher.sh"
 
-sudo -u "$SUDO_USER" mkdir -p "$AUTOSTART_DIR"
-sudo -u "$SUDO_USER" tee "$DESKTOP_FILE" > /dev/null <<EOF
-[Desktop Entry]
-Type=Application
-Name=Battery Limit Applet
-Exec=/opt/battery-limit-applet/launcher.sh
-Icon=battery
-Comment=Tray applet to set battery charge thresholds
-X-GNOME-Autostart-enabled=true
+# Install polkit rule
+
+echo "Installing Polkit rule..."
+sudo mkdir -p "$RULES_DEST"
+sudo cp "$RULES_SRC" "$RULES_DEST/"
+
+sudo groupadd -f battery
+sudo usermod -aG battery "$USERNAME"
+
+echo "Polkit rule installed."
+
+
+# Create systemd user service
+cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=Battery Limit Applet
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/share/battery-limit-applet/launcher.sh
+Restart=on-failure
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+
+[Install]
+WantedBy=default.target
 EOF
 
+
+# Fix permissions in case
+chown "$USERNAME:$USERNAME" "$SERVICE_FILE"
+chmod +x "$APP_DIR/launcher.sh" "$APP_DIR/uninstall.sh"
+
+
+# Reload, enable, and start service immediately
+mkdir -p "$SERVICE_DIR/default.target.wants"
+systemctl --user daemon-reload
+systemctl --user enable battery-limit-applet.service
+systemctl --user restart battery-limit-applet.service
+
 echo "Battery Limit Applet installed successfully."
-echo "It will start automatically on next login."
