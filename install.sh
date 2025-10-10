@@ -26,13 +26,12 @@ echo "Installing Battery Limit Applet for $USERNAME"
 
 mkdir -p "$APP_DIR" "$SERVICE_DIR"
 
-cp "$SRC_DIR/battery-limit-applet.py" "$APP_DIR/"
-cp "$SRC_DIR/launcher.sh" "$APP_DIR/"
+cp "$SRC_DIR/data/battery-limit-applet.py" "$APP_DIR/"
+cp "$SRC_DIR/data/launcher.sh" "$APP_DIR/"
 cp "$SRC_DIR/uninstall.sh" "$APP_DIR/"
 
 
 # Install polkit rule
-
 echo "Installing Polkit rule..."
 sudo mkdir -p "$RULES_DEST"
 sudo cp "$RULES_SRC" "$RULES_DEST/"
