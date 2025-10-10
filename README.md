@@ -38,3 +38,17 @@ Battery Limit Applet is a Linux system tray applet written in Python to manage *
 ```bash
 sudo apt update
 sudo apt install python3-gi python3-gi-cairo gir1.2-appindicator3-0.1
+```
+
+---
+
+## **Installation**
+
+Run install.sh in terminal:
+```bash
+./install.sh
+```
+
+To uninstall, run uninstall.sh.
+
+
